@@ -145,7 +145,7 @@ async def test_sse_replays_then_tails(
 
     async def consume() -> None:
         async with client.stream(
-            "GET", "/agent/stream", params={"conversation_id": CONV, "after": first}
+            "GET", "/agent/stream", params={"conversation_id": CONV, "after": first, "once": "true"}
         ) as resp:
             assert resp.status_code == 200
             assert resp.headers["content-type"].startswith("text/event-stream")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from collections.abc import AsyncIterator, Callable, Mapping
@@ -13,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from toy.commands import Command, CommandAck
-from toy.events import StreamEvent
+from toy.events import EventType, StreamEvent
 from toy.ports import ConversationWorkflowClient, EventSource
 from toy.state import ConversationState
 
@@ -84,6 +85,7 @@ def create_app(deps: ApiDeps) -> FastAPI:
         conversation_id: str = Query(min_length=1),
         after: str | None = Query(default=None),
         format: str | None = Query(default=None),
+        once: bool = Query(default=False, description="close after the next turn.completed"),
     ) -> StreamingResponse:
         factory = deps.encoder
         if format is not None:
@@ -96,25 +98,42 @@ def create_app(deps: ApiDeps) -> FastAPI:
         start_after = last_id or after
 
         async def body() -> AsyncIterator[bytes]:
+            # The tail generator is consumed by its own task feeding a queue, so keepalive
+            # timeouts never cancel (and thereby close) the underlying Redis read.
+            queue: asyncio.Queue[tuple[str, StreamEvent] | None] = asyncio.Queue()
             tail = deps.events.tail(conversation_id, start_after)
+
+            async def pump() -> None:
+                try:
+                    async for item in tail:
+                        await queue.put(item)
+                except Exception:
+                    log.exception("event tail for %s failed", conversation_id)
+                finally:
+                    await queue.put(None)
+
+            pump_task = asyncio.create_task(pump())
             try:
                 while True:
                     try:
-                        stream_id, event = await asyncio.wait_for(
-                            tail.__anext__(), timeout=deps.keepalive_seconds
-                        )
+                        item = await asyncio.wait_for(queue.get(), timeout=deps.keepalive_seconds)
                     except TimeoutError:
+                        if await request.is_disconnected():
+                            return
                         yield b": keepalive\n\n"
                         continue
-                    except StopAsyncIteration:
+                    if item is None:
+                        return
+                    stream_id, event = item
+                    yield encoder(stream_id, event)
+                    if once and event.type == EventType.TURN_COMPLETED:
                         return
                     if await request.is_disconnected():
                         return
-                    yield encoder(stream_id, event)
             finally:
-                aclose = getattr(tail, "aclose", None)
-                if aclose is not None:
-                    await aclose()
+                pump_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await pump_task
 
         headers = {**SSE_HEADERS, **deps.stream_headers}
         if format is not None:

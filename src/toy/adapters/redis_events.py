@@ -10,6 +10,10 @@ import redis.asyncio as redis
 from toy.events import StreamEvent, stream_key
 
 DEFAULT_MAXLEN = 10_000
+DEFAULT_BLOCK_MS = 5_000
+SOCKET_TIMEOUT_S = 30.0
+"""redis-py 8 applies a 5 s default socket (read) timeout, which would kill an `XREAD BLOCK`
+longer than that; the client is created with a timeout comfortably above the block time."""
 
 
 class RedisEventPublisher:
@@ -26,7 +30,7 @@ class RedisEventPublisher:
 
 
 class RedisEventSource:
-    def __init__(self, client: redis.Redis, *, block_ms: int = 5_000) -> None:
+    def __init__(self, client: redis.Redis, *, block_ms: int = DEFAULT_BLOCK_MS) -> None:
         self._redis = client
         self._block_ms = block_ms
 
@@ -46,7 +50,11 @@ class RedisEventSource:
                 yield last, StreamEvent.from_redis_fields(fields)
         xread = cast(Any, self._redis.xread)
         while True:
-            result = await xread({key: last}, block=self._block_ms, count=100)
+            try:
+                result = await xread({key: last}, block=self._block_ms, count=100)
+            except TimeoutError:
+                # Client-side read timeout racing the server's BLOCK expiry: nothing new.
+                continue
             if not result:
                 continue
             for _key, entries in result:
@@ -59,5 +67,5 @@ def _decode(value: Any) -> str:
     return value.decode() if isinstance(value, bytes) else str(value)
 
 
-def make_redis(url: str) -> redis.Redis:
-    return cast(redis.Redis, cast(Any, redis.Redis).from_url(url))
+def make_redis(url: str, *, socket_timeout: float = SOCKET_TIMEOUT_S) -> redis.Redis:
+    return cast(redis.Redis, cast(Any, redis.Redis).from_url(url, socket_timeout=socket_timeout))

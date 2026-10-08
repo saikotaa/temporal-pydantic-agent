@@ -184,3 +184,27 @@ curl -s localhost:8402/v1/billing/meter_events | jq .total_value
 Note on the retry test: the forced failure happens *inside* the model stream (the event handler
 raises), so attempt 1 is metered as a partial event and attempt 2 as the full one; the same
 completion is never counted twice (`test_retried_call_meters_once`).
+
+### Step 8: frontend
+
+`frontend/` (Next.js, pnpm, TypeScript) uses the Vercel AI SDK `useChat` with a custom
+`ChatTransport` (`frontend/lib/transport.ts`): `sendMessages` POSTs a `send` command and the
+reply arrives on the conversation's SSE stream opened by `reconnectToStream` from the last SSE
+id. The SDK's resume path resets per `start` chunk, so every turn is its own assistant message
+and one stream serves the whole conversation. Queue panel (edit, delete, reorder, send now),
+steer bar, stop button (`expected_turn_id`) and approval card POST commands directly and read
+`GET /agent/conversations/{id}/state`. See `frontend/README.md` for details and the Playwright
+smoke (`e2e/smoke.spec.ts`, run against the live stack).
+
+Changes made on the backend for the UI: `data-status` / `data-queue` / `data-retry` are
+transient data parts; a blocked turn emits `tool-approval-request` chunks before `data-approval`
+and the resuming turn re-announces the approved call (`tool-input-available` with the recorded
+args) before its output, so the AI SDK can attach the output to a tool part in the new message;
+`GET /agent/stream?once=true` closes after the next `turn.completed` (single-turn clients and
+the API test); the SSE loop consumes the Redis tail in a pump task so keepalive timeouts never
+cancel the blocking read.
+
+Mismatches: the `ai-elements` and `shadcn` registries were unreachable from this environment, so
+`frontend/components/ai-elements/*` are hand-written stand-ins with the AI Elements names and
+props. redis-py 8 applies a 5 s default socket timeout that killed `XREAD BLOCK 5000`; the
+client is now created with a 30 s socket timeout and the tail tolerates read timeouts.

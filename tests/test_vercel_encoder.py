@@ -173,6 +173,7 @@ def test_approval_blocks_then_resolves() -> None:
         "start",
         "start-step",
         "tool-input-available",
+        "tool-approval-request",
         "data-approval",
         "finish-step",
         "finish",
@@ -180,15 +181,25 @@ def test_approval_blocks_then_resolves() -> None:
         "data-queue",
         "start",
         "start-step",
+        "tool-input-available",
         "data-request-resolved",
         "tool-output-available",
         "finish-step",
         "finish",
     ]
-    assert chunks[3]["data"]["approvals"] == approvals
-    assert chunks[5]["finishReason"] == "other"
-    assert chunks[6]["data"] == {"status": "blocked", "turnId": "turn-1"}
-    assert chunks[10]["data"]["approvals"][0]["approved"] is True
+    assert chunks[3] == {"type": "tool-approval-request", "approvalId": "c9", "toolCallId": "c9"}
+    assert chunks[4]["data"]["approvals"] == approvals
+    assert chunks[6]["finishReason"] == "other"
+    assert chunks[7]["data"] == {"status": "blocked", "turnId": "turn-1"}
+    assert chunks[7]["transient"] is True
+    # The resuming turn re-announces the approved call (with the recorded args) before its output.
+    assert chunks[11] == {
+        "type": "tool-input-available",
+        "toolCallId": "c9",
+        "toolName": "create_ticket",
+        "input": {"title": "t"},
+    }
+    assert chunks[12]["data"]["approvals"][0]["approved"] is True
 
 
 def test_stop_and_failure_finish_reasons() -> None:
