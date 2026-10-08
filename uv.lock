@@ -87,6 +87,19 @@ wheels = [
 ]
 
 [[package]]
+name = "asyncpg-stubs"
+version = "0.32.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/f7/75d46480be90d491509a18953be519609916d2316405c39d4de3067f160f/asyncpg_stubs-0.32.0.tar.gz", hash = "sha256:0c6644e41e2756b49ba0ce95eba289450e3a3a6ee54cc4faf20d218705734630", size = 20865, upload-time = "2026-10-06T21:00:14.098Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/b5/e916c6faa7276edeba0f4f3d16c3fac64754777e5be86f577a40ce73edbc/asyncpg_stubs-0.32.0-py3-none-any.whl", hash = "sha256:a7fb5e07caeb5c4e8c53306525190cc48b64a09fba19d4b7db0d95baa19691ea", size = 27905, upload-time = "2026-10-06T21:00:15.018Z" },
+]
+
+[[package]]
 name = "boto3"
 version = "1.43.109"
 source = { registry = "https://pypi.org/simple" }
@@ -743,6 +756,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "asyncpg-stubs" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -767,6 +781,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "asyncpg-stubs", specifier = ">=0.32.0" },
     { name = "pyright", specifier = ">=1.1.405" },
     { name = "pytest", specifier = ">=8.4" },
     { name = "pytest-asyncio", specifier = ">=1.2" },

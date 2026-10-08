@@ -24,6 +24,7 @@ dev = [
     "ruff>=0.14",
     "pyright>=1.1.405",
     "pytest-timeout>=2.4",
+    "asyncpg-stubs>=0.32.0",
 ]
 
 [build-system]

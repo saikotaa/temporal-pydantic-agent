@@ -51,3 +51,13 @@ uv run python -m toy.hello   # hello, temporal
 ```
 
 The Temporal CLI is used through `docker compose exec temporal temporal ...`.
+
+### Step 3: Redis and app Postgres
+
+Compose adds `redis` (6379) and `app-postgres` (host port 5433, db/user/password `toy`), separate
+from Temporal's own Postgres.
+
+```bash
+docker compose up -d
+uv run python -m toy.ping   # redis ping: True / postgres: PostgreSQL 16...
+```

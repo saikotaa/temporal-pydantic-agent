@@ -44,5 +44,32 @@ services:
     ports:
       - "8233:8080"
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: toy
+      POSTGRES_PASSWORD: toy
+      POSTGRES_DB: toy
+    ports:
+      - "5433:5432"
+    volumes:
+      - app-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toy"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   temporal-pg:
+  app-pg:
