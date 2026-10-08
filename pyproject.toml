@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 agent-api = "toy.api.main:main"
+agent-worker = "toy.worker:main"
 
 [dependency-groups]
 dev = [

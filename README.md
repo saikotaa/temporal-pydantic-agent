@@ -87,3 +87,52 @@ curl -N "localhost:8400/agent/stream?conversation_id=c1"
 
 `API_BACKEND=temporal` (the default) uses the Temporal client from step 5 and the Redis event
 source (`toy/adapters/redis_events.py`, `XADD` / `XRANGE` + `XREAD BLOCK`).
+
+### Step 5: workflow, worker, and agent
+
+One `ConversationWorkflow` per conversation (`toy/workflow.py`, workflow id `conv:{id}`), holding
+the editable queue in workflow memory. The Pydantic AI agent (`toy/agent.py`) runs *inside* the
+workflow with `TemporalDurability`: every model request and tool call is an activity, and the
+`event_stream_handler` runs inside the model activity, normalizing Pydantic AI events into
+`StreamEvent`s and `XADD`ing them to `conv:{id}:events` (`toy/stream_events.py`). Our own
+activities (`toy/activities.py`) do the remaining I/O: `load_history`, `persist_turn` (one
+Postgres row per `ModelMessage`, Pydantic JSON), `mirror_status`, `publish_event`.
+
+| Command | Delivery | Effect |
+| --- | --- | --- |
+| `send`, `steer`, `context` | update-with-start (`USE_EXISTING`) | dedup by `client_message_id`; `send` appends to `pending`; steer/context go to the running turn's `inbox` (injected as user parts before the next model request by a history processor) or to `pending` when idle |
+| `tool_results` | update on the existing workflow | only while `blocked`; goes to the head of `pending` |
+| `edit`, `delete`, `reorder`, `send_now`, `stop` | signals | mutate `pending`; `stop` sets the cancel flag (ignored if `expected_turn_id` is not the running turn) |
+| state | query | `ConversationState` |
+
+The turn loop pops the head of `pending`, races the agent run against the cancel flag with
+`workflow.wait`, persists, publishes `turn.completed{terminal}` and continues-as-new every
+20 turns carrying `pending`, counters and seen ids. A run ending with `DeferredToolRequests`
+(the `create_ticket` tool has `requires_approval=True`) sets `status=blocked` and records
+`pending_approvals`; nothing holds a worker slot while blocked.
+
+```bash
+uv run python -m toy.db init                     # schema in app Postgres
+LLM_MODEL=test uv run agent-worker               # Pydantic AI TestModel; no key needed
+uv run agent-api                                  # API_BACKEND=temporal is the default
+uv run pytest tests/test_workflow.py             # needs docker compose up (uses the real server)
+```
+
+With a real model set `LLM_MODEL=anthropic/claude-sonnet-5-5` plus `LITELLM_BASE_URL` /
+`LITELLM_API_KEY` (LiteLLM proxy, OpenAI-compatible) in `.env`.
+
+Mismatches found against the installed SDKs (pydantic-ai-slim 2.54, temporalio 1.34):
+
+- The agent is registered on the workflow class via `__pydantic_ai_agents__` (base class
+  `PydanticAIWorkflow`), with `TemporalDurability` passed in `Agent(capabilities=[...])`;
+  `TemporalAgent` is deprecated.
+- `history_processors` is now the `ProcessHistory` capability; it runs in workflow code and
+  reads the inbox through `workflow.instance()`.
+- `requires_approval=True` is a `Tool(...)` / `@agent.tool` kwarg; the run output type must
+  include `DeferredToolRequests` (`output_type=[str, DeferredToolRequests]`).
+- Model instances can't cross the activity boundary, so the agent's model is a `RuntimeModel`
+  that resolves the real model (LiteLLM, or `TestModel` in tests) from `toy.runtime` inside the
+  activity. The same holder provides the Redis publisher to the event handler.
+- `asyncio.wait` is restricted in the workflow sandbox; the turn uses `workflow.wait`.
+- The time-skipping test server can't be downloaded in this environment, so workflow tests
+  run against the compose Temporal server with a unique task queue per test.
