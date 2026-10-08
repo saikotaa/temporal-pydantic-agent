@@ -61,3 +61,29 @@ from Temporal's own Postgres.
 docker compose up -d
 uv run python -m toy.ping   # redis ping: True / postgres: PostgreSQL 16...
 ```
+
+### Step 4: agent-api
+
+FastAPI transport that depends on two ports (`toy/ports.py`): `ConversationWorkflowClient`
+(submit command, read state) and `EventSource` (tail a conversation's event stream). It knows
+nothing about Temporal or Redis. Contracts: `toy/commands.py` (discriminated command union and
+ack), `toy/state.py` (conversation state), `toy/events.py` (SDK-independent stream events and
+their Redis field encoding).
+
+| Route | Purpose |
+| --- | --- |
+| `POST /agent/commands` | `Command{conversation_id, client_message_id, payload}`; payload `kind` is one of `send, steer, context, edit, delete, reorder, send_now, stop, tool_results`. Returns `CommandAck`. |
+| `GET /agent/conversations/{id}/state` | `ConversationState` (status, pending queue, approvals, counters); 404 if unknown. |
+| `GET /agent/stream?conversation_id=&after=` | SSE. Replays events after `after` (or `Last-Event-ID`), then tails. SSE `id:` is the Redis stream id. `?format=raw` selects the JSON debug encoder once step 6 installs the Vercel encoder. |
+
+```bash
+uv run pytest tests/test_api.py           # dedup, queue edits, status guards, 422/404, SSE replay+tail
+API_BACKEND=memory uv run agent-api       # port 8400, in-memory stub (no Temporal)
+curl -s -X POST localhost:8400/agent/commands -H 'content-type: application/json' \
+  -d '{"conversation_id":"c1","client_message_id":"m1","payload":{"kind":"send","content":"hello"}}'
+curl -s localhost:8400/agent/conversations/c1/state
+curl -N "localhost:8400/agent/stream?conversation_id=c1"
+```
+
+`API_BACKEND=temporal` (the default) uses the Temporal client from step 5 and the Redis event
+source (`toy/adapters/redis_events.py`, `XADD` / `XRANGE` + `XREAD BLOCK`).

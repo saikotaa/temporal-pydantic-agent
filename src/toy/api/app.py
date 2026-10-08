@@ -1,0 +1,117 @@
+"""agent-api routes. Knows nothing about Temporal or Redis; everything goes through ports."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from collections.abc import AsyncIterator, Callable, Mapping
+from dataclasses import dataclass, field
+
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+
+from toy.commands import Command, CommandAck
+from toy.events import StreamEvent
+from toy.ports import ConversationWorkflowClient, EventSource
+from toy.state import ConversationState
+
+log = logging.getLogger(__name__)
+
+SseEncoder = Callable[[str, StreamEvent], bytes]
+"""Turns one (stream id, event) pair into the bytes of one or more SSE frames."""
+
+SSE_HEADERS: Mapping[str, str] = {
+    "cache-control": "no-cache",
+    "x-accel-buffering": "no",
+    "connection": "keep-alive",
+}
+
+
+def json_sse_encoder(stream_id: str, event: StreamEvent) -> bytes:
+    """Debug encoder: one frame per event, data = the normalized event as JSON."""
+    payload = event.model_dump(mode="json", exclude_none=True)
+    return f"id: {stream_id}\nevent: {event.type}\ndata: {json.dumps(payload)}\n\n".encode()
+
+
+@dataclass
+class ApiDeps:
+    workflows: ConversationWorkflowClient
+    events: EventSource
+    encoder: SseEncoder = json_sse_encoder
+    stream_headers: Mapping[str, str] = field(default_factory=dict[str, str])
+    encoders: Mapping[str, SseEncoder] = field(default_factory=dict[str, SseEncoder])
+    """Optional alternative encoders selectable with `?format=`."""
+    keepalive_seconds: float = 15.0
+
+
+def create_app(deps: ApiDeps) -> FastAPI:
+    app = FastAPI(title="agent-api", version="0.1.0")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+
+    @app.get("/healthz")
+    async def healthz() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.post("/agent/commands", response_model=CommandAck)
+    async def post_command(command: Command) -> CommandAck:
+        return await deps.workflows.submit(command)
+
+    @app.get("/agent/conversations/{conversation_id}/state", response_model=ConversationState)
+    async def get_state(conversation_id: str) -> ConversationState:
+        state = await deps.workflows.get_state(conversation_id)
+        if state is None:
+            raise HTTPException(status_code=404, detail="conversation not found")
+        return state
+
+    @app.get("/agent/stream")
+    async def stream(
+        request: Request,
+        conversation_id: str = Query(min_length=1),
+        after: str | None = Query(default=None),
+        format: str | None = Query(default=None),
+    ) -> StreamingResponse:
+        encoder = deps.encoder
+        if format is not None:
+            if format not in deps.encoders:
+                raise HTTPException(status_code=422, detail=f"unknown format {format!r}")
+            encoder = deps.encoders[format]
+        # Last-Event-ID (EventSource reconnect) wins over the query parameter.
+        last_id = request.headers.get("last-event-id")
+        start_after = last_id or after
+
+        async def body() -> AsyncIterator[bytes]:
+            tail = deps.events.tail(conversation_id, start_after)
+            try:
+                while True:
+                    try:
+                        stream_id, event = await asyncio.wait_for(
+                            tail.__anext__(), timeout=deps.keepalive_seconds
+                        )
+                    except TimeoutError:
+                        yield b": keepalive\n\n"
+                        continue
+                    except StopAsyncIteration:
+                        return
+                    if await request.is_disconnected():
+                        return
+                    yield encoder(stream_id, event)
+            finally:
+                aclose = getattr(tail, "aclose", None)
+                if aclose is not None:
+                    await aclose()
+
+        headers = {**SSE_HEADERS, **deps.stream_headers}
+        if format is not None:
+            # Alternative encoders don't promise the default encoder's framing headers.
+            headers = dict(SSE_HEADERS)
+        return StreamingResponse(body(), media_type="text/event-stream", headers=headers)
+
+    return app

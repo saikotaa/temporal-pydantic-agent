@@ -17,6 +17,9 @@ dependencies = [
     "boto3>=1.40",
 ]
 
+[project.scripts]
+agent-api = "toy.api.main:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.4",
