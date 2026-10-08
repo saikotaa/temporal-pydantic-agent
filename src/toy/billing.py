@@ -1,8 +1,8 @@
 """Usage-based billing: a `WrapperModel` that meters every model call idempotently.
 
 `BillingModel` runs inside the model activity. After each request it computes usage and cost
-and posts one meter event whose identifier is `uuid5(NS, f"{workflow_id}:{run_id}:{activity_id}")`, so a
-retried activity re-posts the same identifier and the billing endpoint (Stripe-like, 409 on
+and posts one meter event whose identifier is `uuid5(NS, "{workflow_id}:{run_id}:{activity_id}")`,
+so a retried activity re-posts the same identifier and the billing endpoint (Stripe-like, 409 on
 duplicates) counts it once. A request that ends in an exception after producing usage is a
 partial completion and gets `:attempt{n}` appended so it is metered separately.
 """
