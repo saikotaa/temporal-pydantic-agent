@@ -7,16 +7,15 @@ import logging
 from datetime import timedelta
 
 import httpx
-from pydantic_ai.durable_exec.temporal import PydanticAIPlugin
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.providers.litellm import LiteLLMProvider
-from temporalio.client import Client
 from temporalio.worker import Worker
 
 from toy.activities import ConversationActivities
 from toy.adapters.redis_events import RedisEventPublisher, make_redis
+from toy.adapters.temporal_client import connect_client
 from toy.billing import BillingModel, HttpBillingClient
 from toy.db import PostgresRepository, create_pool
 from toy.runtime import runtime
@@ -38,11 +37,7 @@ def build_model(settings: Settings) -> Model:
 
 
 async def run_worker(settings: Settings) -> None:
-    client = await Client.connect(
-        settings.temporal_address,
-        namespace=settings.temporal_namespace,
-        plugins=[PydanticAIPlugin()],
-    )
+    client = await connect_client(settings)
     pool = await create_pool(settings.database_url)
     redis = make_redis(settings.redis_url)
     publisher = RedisEventPublisher(redis)
@@ -65,10 +60,11 @@ async def run_worker(settings: Settings) -> None:
         graceful_shutdown_timeout=timedelta(seconds=60),
     )
     log.info(
-        "worker on %s (model=%s, billing=%s)",
+        "worker on %s (model=%s, billing=%s, claim_check=%s)",
         settings.task_queue,
         runtime.model.model_name,
         settings.billing_url,
+        settings.claim_check_enabled,
     )
     try:
         await worker.run()

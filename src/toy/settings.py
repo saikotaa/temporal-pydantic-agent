@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
 
+    claim_check_enabled: bool = True
+    claim_check_threshold: int = 20 * 1024
+
 
 def get_settings() -> Settings:
     return Settings()

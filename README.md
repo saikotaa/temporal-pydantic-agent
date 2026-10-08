@@ -226,3 +226,28 @@ uv run python scripts/validate_hitl.py       # prints ok/FAIL per assertion; exi
 
 One conversation per decision because Pydantic AI's `TestModel` stops calling tools once the
 history contains tool returns, so a second round in the same conversation would not block.
+
+### Step 10: claim check
+
+`src/toy/claim_check.py`: `ClaimCheckCodec(PayloadCodec)` gzips any payload over 20 KB, stores
+it in S3 under its sha256 (`put_if_absent`, so retries and identical histories dedupe) and
+leaves a `binary/claim-check` claim in the history; a missing object decodes to a non-retryable
+`ApplicationError`. `ClaimCheckPlugin(SimplePlugin)` replaces only `payload_codec` on the
+existing data converter, so Pydantic AI's payload converter stays. Both the API client and the
+worker install it when `CLAIM_CHECK_ENABLED=true` (default; `CLAIM_CHECK_THRESHOLD` bytes).
+
+Compose gains `minio` (API 9000, console 9001, bucket `claim-check` created on first use).
+Docker Hub denied `minio/minio` from this environment, so `docker-compose.s3mock.yml` swaps in
+`adobe/s3mock` on the same port for validation:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.s3mock.yml up -d minio   # or plain `up -d` with MinIO
+uv run pytest tests/test_claim_check.py          # codec round trip, dedup, missing object, plugin through Temporal
+uv run python scripts/measure_claim_check.py     # 50-turn history with and without the codec
+```
+
+Validated live: a 46 KB `send` produced three `binary/claim-check` payloads in the workflow
+history and three objects in the bucket, and the turn ran normally. Measurement and the
+recommendation are in `DECISION.md` (short version: required for the product; 50 turns of 2 KB
+replies already write 5 MB of history without it, and ~53 history events per turn mean
+continue-as-new is needed regardless).

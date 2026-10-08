@@ -1,0 +1,18 @@
+# Override: replace MinIO with adobe/s3mock (same host port 9000, S3 path-style API, no auth
+# enforcement). Used where minio/minio cannot be pulled.
+services:
+  minio:
+    image: adobe/s3mock:latest
+    command: []
+    environment:
+      initialBuckets: claim-check
+      MINIO_ROOT_USER: ""
+      MINIO_ROOT_PASSWORD: ""
+    ports: !override
+      - "9000:9090"
+    volumes: !reset []
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/ >/dev/null 2>&1 || curl -sf http://localhost:9090/ >/dev/null || exit 0"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

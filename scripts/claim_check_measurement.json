@@ -1,0 +1,24 @@
+[
+ {
+  "label": "plain",
+  "turns": 50,
+  "events": 2633,
+  "history_bytes": 5046718,
+  "max_payload_bytes": 161119,
+  "payloads_over_threshold": 44,
+  "offloaded_objects": 0,
+  "offloaded_original_bytes": 0,
+  "offloaded_stored_bytes": 0
+ },
+ {
+  "label": "claim-check",
+  "turns": 50,
+  "events": 2639,
+  "history_bytes": 1004068,
+  "max_payload_bytes": 20015,
+  "payloads_over_threshold": 0,
+  "offloaded_objects": 44,
+  "offloaded_original_bytes": 4056652,
+  "offloaded_stored_bytes": 153566
+ }
+]

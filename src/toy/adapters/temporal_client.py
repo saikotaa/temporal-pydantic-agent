@@ -7,7 +7,7 @@ on the existing workflow; edit/delete/reorder/send_now/stop are signals; state i
 
 from __future__ import annotations
 
-from temporalio.client import Client, WithStartWorkflowOperation
+from temporalio.client import Client, Plugin, WithStartWorkflowOperation
 from temporalio.common import WorkflowIDConflictPolicy
 from temporalio.exceptions import TemporalError
 from temporalio.service import RPCError, RPCStatusCode
@@ -80,12 +80,29 @@ class TemporalWorkflowClient:
             raise
 
 
-async def connect_temporal_client(settings: Settings) -> TemporalWorkflowClient:
+def temporal_plugins(settings: Settings) -> list[Plugin]:
+    """PydanticAIPlugin plus, when enabled, the claim-check codec backed by S3 (settings)."""
     from pydantic_ai.durable_exec.temporal import PydanticAIPlugin
 
-    client = await Client.connect(
+    plugins: list[Plugin] = [PydanticAIPlugin()]
+    if settings.claim_check_enabled:
+        from toy.claim_check import ClaimCheckCodec, ClaimCheckPlugin, S3ClaimStore
+
+        store = S3ClaimStore.from_settings(settings)
+        store.ensure_bucket()
+        plugins.append(
+            ClaimCheckPlugin(ClaimCheckCodec(store, threshold=settings.claim_check_threshold))
+        )
+    return plugins
+
+
+async def connect_client(settings: Settings) -> Client:
+    return await Client.connect(
         settings.temporal_address,
         namespace=settings.temporal_namespace,
-        plugins=[PydanticAIPlugin()],
+        plugins=temporal_plugins(settings),
     )
-    return TemporalWorkflowClient(client, settings.task_queue)
+
+
+async def connect_temporal_client(settings: Settings) -> TemporalWorkflowClient:
+    return TemporalWorkflowClient(await connect_client(settings), settings.task_queue)
