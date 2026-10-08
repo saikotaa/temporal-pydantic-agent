@@ -37,3 +37,17 @@ uv run ruff check . && uv run pyright && uv run pytest
 
 Pinned by resolution at scaffold time: `pydantic-ai-slim 2.54`, `temporalio 1.34`,
 `pydantic 2.13`, `fastapi 0.142`, `redis 8.1`.
+
+### Step 2: Temporal in compose
+
+`docker-compose.yml` runs `temporalio/auto-setup` with its own Postgres and the Temporal UI on
+http://localhost:8233. The dynamic config in `docker/temporal/` pins the default blob/history
+limits explicitly (used by step 10).
+
+```bash
+docker compose up -d
+docker compose exec temporal temporal operator cluster health --address temporal:7233  # SERVING
+uv run python -m toy.hello   # hello, temporal
+```
+
+The Temporal CLI is used through `docker compose exec temporal temporal ...`.

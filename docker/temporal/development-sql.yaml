@@ -1,0 +1,26 @@
+# Temporal dynamic config for local dev.
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true
+    constraints: {}
+# Defaults kept explicit so step 10 (claim-check) can reason about them.
+limit.blobSize.warn:
+  - value: 524288   # 512 KB
+    constraints: {}
+limit.blobSize.error:
+  - value: 2097152  # 2 MB
+    constraints: {}
+limit.historySize.warn:
+  - value: 10485760  # 10 MB
+    constraints: {}
+limit.historySize.error:
+  - value: 52428800  # 50 MB
+    constraints: {}
+limit.historyCount.warn:
+  - value: 10240
+    constraints: {}
+limit.historyCount.error:
+  - value: 51200
+    constraints: {}
