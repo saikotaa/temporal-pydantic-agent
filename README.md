@@ -208,3 +208,21 @@ Mismatches: the `ai-elements` and `shadcn` registries were unreachable from this
 `frontend/components/ai-elements/*` are hand-written stand-ins with the AI Elements names and
 props. redis-py 8 applies a 5 s default socket timeout that killed `XREAD BLOCK 5000`; the
 client is now created with a 30 s socket timeout and the tail tolerates read timeouts.
+
+### Step 9: human-in-the-loop validation
+
+`scripts/validate_hitl.py` drives the API end to end (stack up, `LLM_MODEL=test` worker,
+`agent-api`): for `accept` and then `decline`, each in its own conversation, it sends a prompt
+that triggers `create_ticket`, asserts `status == blocked` with exactly one pending approval,
+posts `tool_results`, waits for the resuming turn to complete, then checks Postgres (turn-1
+rows `blocked`, turn-2 rows `completed`, the `create_ticket` tool-return content, the status
+mirror) and the Redis event sequence (`tool.input_available … turn.completed{blocked} …
+request.resolved … turn.completed{completed}`, the approved flag, the tool output or the denial
+reason).
+
+```bash
+uv run python scripts/validate_hitl.py       # prints ok/FAIL per assertion; exit 1 on failure
+```
+
+One conversation per decision because Pydantic AI's `TestModel` stops calling tools once the
+history contains tool returns, so a second round in the same conversation would not block.
