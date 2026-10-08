@@ -223,3 +223,45 @@ async def test_continue_as_new_keeps_queue(harness: Harness) -> None:
     dup = await harness.workflows.submit(cmd(conv, "send", "m1", content="one"))
     assert dup.duplicate, "seen ids survive continue-as-new"
     assert [t.turn_id for t in harness.repo.turns] == ["turn-1", "turn-2", "turn-3"]
+
+
+class FailOncePublisher:
+    """Raises on the first publish (failing the model activity's first attempt), then works."""
+
+    def __init__(self, inner: Any) -> None:
+        self.inner = inner
+        self.failed = False
+
+    async def publish(self, event: Any) -> str:
+        if not self.failed and event.type == "text.delta":
+            self.failed = True
+            raise RuntimeError("simulated publisher outage")
+        return await self.inner.publish(event)
+
+
+async def test_model_activity_retry_meters_once(harness: Harness) -> None:
+    from toy.billing import BillingModel, InMemoryBillingClient
+    from toy.runtime import runtime
+
+    billing = InMemoryBillingClient()
+    harness.set_model(
+        BillingModel(
+            TestModel(call_tools=[], custom_output_text="metered reply"), billing, customer="cus_t"
+        )
+    )
+    runtime.publisher = FailOncePublisher(harness.events)
+    conv = harness.conversation_id
+    await harness.workflows.submit(cmd(conv, "send", "m1", content="hi"))
+    state = await harness.wait_for(lambda s: s.turn_count == 1 and s.status == "idle")
+    assert state.last_terminal == TurnTerminal.COMPLETED
+    await harness.wait_until(lambda: harness.event_types()[-1] == "status.changed")
+    # Attempt 1 failed inside the stream, so it is a *partial* (attempt-suffixed) event; attempt 2
+    # is the full completion. Each completion is metered exactly once; nothing is double-counted.
+    assert len(billing.attempts) == 2 and len(billing.events) == 2
+    partial, full = sorted(billing.events.values(), key=lambda e: e.attempt)
+    assert partial.partial and partial.attempt == 1
+    assert not full.partial and full.attempt == 2
+    deltas = harness.events_of("text.delta")
+    assert deltas and all(e.attempt == 2 for e in deltas)
+    usage_events = harness.events_of("usage.updated")
+    assert [e.attempt for e in usage_events] == [1, 2]

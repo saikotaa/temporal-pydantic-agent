@@ -158,3 +158,29 @@ Framing is `id: <redis stream id>\ndata: <json>\n\n`, the response carries
 Finish reasons: completed→`stop`, stopped/blocked→`other`, failed→`error`.
 `?format=raw` keeps the JSON debug encoder. Tests: `tests/test_vercel_encoder.py` (synthetic
 fixtures plus `tests/fixtures/hitl_recorded.json`, recorded from the step 5 live run).
+
+### Step 7: usage-based billing
+
+`toy/billing.py`: `BillingModel(WrapperModel)` wraps the real model *inside the model activity*
+(the worker installs it as `runtime.model`). After each request (streamed or not) it computes
+usage and cost from a small per-token price table and posts one meter event
+`{event_name, identifier, customer, value, model, usage, cost_usd, partial, attempt}` to
+`settings.billing_url`. `identifier = uuid5(NS, "{workflow_id}:{run_id}:{activity_id}")`, so a
+retried activity re-posts the same identifier and the endpoint answers 409 (counted once). A
+request that raises after producing usage is a partial completion: it gets `:attempt{n}` and is
+metered on its own. Successful metering also publishes a `usage.updated` stream event.
+
+Vercel's `emulate` Stripe emulator covers customers, payments and checkout but not billing meter
+events, so `toy/billing_emulator.py` (FastAPI, port 8402) stands in: `POST
+/v1/billing/meter_events` (409 on duplicate identifier), `GET` to list, `DELETE` to reset.
+
+```bash
+uv run python -m toy.billing_emulator      # port 8402 (BILLING_PORT)
+uv run pytest tests/test_billing.py        # identity, retry dedup, partial, emulator 409
+uv run pytest tests/test_workflow.py -k retry   # forced model-activity retry: partial + full
+curl -s localhost:8402/v1/billing/meter_events | jq .total_value
+```
+
+Note on the retry test: the forced failure happens *inside* the model stream (the event handler
+raises), so attempt 1 is metered as a partial event and attempt 2 as the full one; the same
+completion is never counted twice (`test_retried_call_meters_once`).

@@ -6,6 +6,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
+import httpx
 from pydantic_ai.durable_exec.temporal import PydanticAIPlugin
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -16,6 +17,7 @@ from temporalio.worker import Worker
 
 from toy.activities import ConversationActivities
 from toy.adapters.redis_events import RedisEventPublisher, make_redis
+from toy.billing import BillingModel, HttpBillingClient
 from toy.db import PostgresRepository, create_pool
 from toy.runtime import runtime
 from toy.settings import Settings, get_settings
@@ -44,7 +46,14 @@ async def run_worker(settings: Settings) -> None:
     pool = await create_pool(settings.database_url)
     redis = make_redis(settings.redis_url)
     publisher = RedisEventPublisher(redis)
-    runtime.model = build_model(settings)
+    http = httpx.AsyncClient(timeout=10)
+    billing = HttpBillingClient(http, settings.billing_url)
+    runtime.model = BillingModel(
+        build_model(settings),
+        billing,
+        customer=settings.billing_customer,
+        price_model_name=settings.llm_model,
+    )
     runtime.publisher = publisher
     activities = ConversationActivities(PostgresRepository(pool), publisher)
     worker = Worker(
@@ -55,12 +64,18 @@ async def run_worker(settings: Settings) -> None:
         max_concurrent_activities=10,
         graceful_shutdown_timeout=timedelta(seconds=60),
     )
-    log.info("worker on %s (model=%s)", settings.task_queue, runtime.model.model_name)
+    log.info(
+        "worker on %s (model=%s, billing=%s)",
+        settings.task_queue,
+        runtime.model.model_name,
+        settings.billing_url,
+    )
     try:
         await worker.run()
     finally:
         await pool.close()
         await redis.aclose()
+        await http.aclose()
 
 
 def main() -> None:
