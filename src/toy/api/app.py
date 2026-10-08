@@ -22,6 +22,9 @@ log = logging.getLogger(__name__)
 SseEncoder = Callable[[str, StreamEvent], bytes]
 """Turns one (stream id, event) pair into the bytes of one or more SSE frames."""
 
+EncoderFactory = Callable[[], SseEncoder]
+"""Builds a fresh encoder per SSE connection (encoders may be stateful)."""
+
 SSE_HEADERS: Mapping[str, str] = {
     "cache-control": "no-cache",
     "x-accel-buffering": "no",
@@ -35,13 +38,17 @@ def json_sse_encoder(stream_id: str, event: StreamEvent) -> bytes:
     return f"id: {stream_id}\nevent: {event.type}\ndata: {json.dumps(payload)}\n\n".encode()
 
 
+def _json_encoder_factory() -> SseEncoder:
+    return json_sse_encoder
+
+
 @dataclass
 class ApiDeps:
     workflows: ConversationWorkflowClient
     events: EventSource
-    encoder: SseEncoder = json_sse_encoder
+    encoder: EncoderFactory = _json_encoder_factory
     stream_headers: Mapping[str, str] = field(default_factory=dict[str, str])
-    encoders: Mapping[str, SseEncoder] = field(default_factory=dict[str, SseEncoder])
+    encoders: Mapping[str, EncoderFactory] = field(default_factory=dict[str, EncoderFactory])
     """Optional alternative encoders selectable with `?format=`."""
     keepalive_seconds: float = 15.0
 
@@ -78,11 +85,12 @@ def create_app(deps: ApiDeps) -> FastAPI:
         after: str | None = Query(default=None),
         format: str | None = Query(default=None),
     ) -> StreamingResponse:
-        encoder = deps.encoder
+        factory = deps.encoder
         if format is not None:
             if format not in deps.encoders:
                 raise HTTPException(status_code=422, detail=f"unknown format {format!r}")
-            encoder = deps.encoders[format]
+            factory = deps.encoders[format]
+        encoder = factory()
         # Last-Event-ID (EventSource reconnect) wins over the query parameter.
         last_id = request.headers.get("last-event-id")
         start_after = last_id or after

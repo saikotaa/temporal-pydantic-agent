@@ -10,7 +10,9 @@ from enum import StrEnum
 import uvicorn
 
 from toy.adapters.memory import InMemoryEventSource, InMemoryWorkflowClient
-from toy.api.app import ApiDeps, create_app
+from toy.api.app import ApiDeps, create_app, json_sse_encoder
+from toy.api.vercel_encoder import UI_STREAM_HEADERS, VercelUiStreamEncoder
+from toy.ports import ConversationWorkflowClient, EventSource
 from toy.settings import get_settings
 
 
@@ -19,16 +21,28 @@ class ApiBackend(StrEnum):
     TEMPORAL = "temporal"
 
 
+RAW_FORMAT = "raw"
+
+
 async def build_deps(backend: ApiBackend) -> ApiDeps:
     settings = get_settings()
+    workflows: ConversationWorkflowClient
+    events: EventSource
     if backend == ApiBackend.MEMORY:
-        return ApiDeps(workflows=InMemoryWorkflowClient(), events=InMemoryEventSource())
-    from toy.adapters.redis_events import RedisEventSource, make_redis
-    from toy.adapters.temporal_client import connect_temporal_client
+        workflows, events = InMemoryWorkflowClient(), InMemoryEventSource()
+    else:
+        from toy.adapters.redis_events import RedisEventSource, make_redis
+        from toy.adapters.temporal_client import connect_temporal_client
 
-    workflows = await connect_temporal_client(settings)
-    events = RedisEventSource(make_redis(settings.redis_url))
-    return ApiDeps(workflows=workflows, events=events)
+        workflows = await connect_temporal_client(settings)
+        events = RedisEventSource(make_redis(settings.redis_url))
+    return ApiDeps(
+        workflows=workflows,
+        events=events,
+        encoder=VercelUiStreamEncoder,
+        stream_headers=UI_STREAM_HEADERS,
+        encoders={RAW_FORMAT: lambda: json_sse_encoder},
+    )
 
 
 async def serve(backend: ApiBackend, port: int) -> None:

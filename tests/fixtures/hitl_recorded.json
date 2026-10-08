@@ -1,0 +1,462 @@
+[
+ {
+  "id": "1791423153855-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-0",
+   "attempt": 1,
+   "type": "status.changed",
+   "status": "idle",
+   "pending_count": 1
+  }
+ },
+ {
+  "id": "1791423153873-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "turn.started",
+   "client_message_id": "m1"
+  }
+ },
+ {
+  "id": "1791423153911-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "status.changed",
+   "status": "working",
+   "pending_count": 0
+  }
+ },
+ {
+  "id": "1791423153994-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_start",
+   "tool_name": "lookup_weather",
+   "tool_call_id": "pyd_ai_tool_call_id__lookup_weather"
+  }
+ },
+ {
+  "id": "1791423153995-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_delta",
+   "delta": "{\"city\":\"a\"}",
+   "tool_call_id": "pyd_ai_tool_call_id__lookup_weather"
+  }
+ },
+ {
+  "id": "1791423153995-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_available",
+   "tool_name": "lookup_weather",
+   "tool_call_id": "pyd_ai_tool_call_id__lookup_weather",
+   "args": {
+    "city": "a"
+   }
+  }
+ },
+ {
+  "id": "1791423153995-2",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_start",
+   "tool_name": "read_note",
+   "tool_call_id": "pyd_ai_tool_call_id__read_note"
+  }
+ },
+ {
+  "id": "1791423153996-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_delta",
+   "delta": "{\"key\":\"a\"}",
+   "tool_call_id": "pyd_ai_tool_call_id__read_note"
+  }
+ },
+ {
+  "id": "1791423153996-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_available",
+   "tool_name": "read_note",
+   "tool_call_id": "pyd_ai_tool_call_id__read_note",
+   "args": {
+    "key": "a"
+   }
+  }
+ },
+ {
+  "id": "1791423153997-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_start",
+   "tool_name": "create_ticket",
+   "tool_call_id": "pyd_ai_tool_call_id__create_ticket"
+  }
+ },
+ {
+  "id": "1791423153997-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_delta",
+   "delta": "{\"title\":\"a\",\"body\":\"a\"}",
+   "tool_call_id": "pyd_ai_tool_call_id__create_ticket"
+  }
+ },
+ {
+  "id": "1791423153997-2",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.input_available",
+   "tool_name": "create_ticket",
+   "tool_call_id": "pyd_ai_tool_call_id__create_ticket",
+   "args": {
+    "title": "a",
+    "body": "a"
+   }
+  }
+ },
+ {
+  "id": "1791423154196-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.output",
+   "tool_name": "lookup_weather",
+   "tool_call_id": "pyd_ai_tool_call_id__lookup_weather",
+   "output": "The weather in a is 21\u00b0C and sunny."
+  }
+ },
+ {
+  "id": "1791423154221-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "tool.output",
+   "tool_name": "read_note",
+   "tool_call_id": "pyd_ai_tool_call_id__read_note",
+   "output": "no note named 'a'"
+  }
+ },
+ {
+  "id": "1791423154335-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "turn.completed",
+   "status": "blocked",
+   "terminal": "blocked",
+   "client_message_id": "m1",
+   "usage": {
+    "input_tokens": 56,
+    "output_tokens": 0,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "requests": 1,
+    "tool_calls": 2
+   },
+   "approvals": [
+    {
+     "tool_call_id": "pyd_ai_tool_call_id__create_ticket",
+     "tool_name": "create_ticket",
+     "args": {
+      "title": "a",
+      "body": "a"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "id": "1791423154503-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-1",
+   "attempt": 1,
+   "type": "status.changed",
+   "status": "blocked",
+   "pending_count": 0
+  }
+ },
+ {
+  "id": "1791423169757-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "turn.started",
+   "client_message_id": "t1"
+  }
+ },
+ {
+  "id": "1791423169801-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "status.changed",
+   "status": "working",
+   "pending_count": 0
+  }
+ },
+ {
+  "id": "1791423169822-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "request.resolved",
+   "approvals": [
+    {
+     "tool_call_id": "pyd_ai_tool_call_id__create_ticket",
+     "approved": true,
+     "reason": null
+    }
+   ]
+  }
+ },
+ {
+  "id": "1791423169889-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "tool.output",
+   "tool_name": "create_ticket",
+   "tool_call_id": "pyd_ai_tool_call_id__create_ticket",
+   "output": "ticket TCK-778f created: a"
+  }
+ },
+ {
+  "id": "1791423169928-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.start",
+   "part_id": "p0"
+  }
+ },
+ {
+  "id": "1791423169929-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "{\"lookup_weather\":\"The "
+  }
+ },
+ {
+  "id": "1791423169929-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "weather "
+  }
+ },
+ {
+  "id": "1791423169929-2",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "in "
+  }
+ },
+ {
+  "id": "1791423169930-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "a "
+  }
+ },
+ {
+  "id": "1791423169930-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "is "
+  }
+ },
+ {
+  "id": "1791423169931-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "21\u00b0C "
+  }
+ },
+ {
+  "id": "1791423169931-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "and "
+  }
+ },
+ {
+  "id": "1791423169931-2",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "sunny.\",\"read_note\":\"no "
+  }
+ },
+ {
+  "id": "1791423169932-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "note "
+  }
+ },
+ {
+  "id": "1791423169932-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "named "
+  }
+ },
+ {
+  "id": "1791423169933-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "'a'\",\"create_ticket\":\"ticket "
+  }
+ },
+ {
+  "id": "1791423169933-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "TCK-778f "
+  }
+ },
+ {
+  "id": "1791423169934-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "created: "
+  }
+ },
+ {
+  "id": "1791423169934-1",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.delta",
+   "part_id": "p0",
+   "delta": "a\"}"
+  }
+ },
+ {
+  "id": "1791423169935-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "text.end",
+   "part_id": "p0"
+  }
+ },
+ {
+  "id": "1791423169982-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "turn.completed",
+   "status": "idle",
+   "terminal": "completed",
+   "client_message_id": "t1",
+   "usage": {
+    "input_tokens": 73,
+    "output_tokens": 39,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "requests": 1,
+    "tool_calls": 1
+   }
+  }
+ },
+ {
+  "id": "1791423170031-0",
+  "event": {
+   "conversation_id": "live-a",
+   "turn_id": "turn-2",
+   "attempt": 1,
+   "type": "status.changed",
+   "status": "idle",
+   "pending_count": 0
+  }
+ }
+]

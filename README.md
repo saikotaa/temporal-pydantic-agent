@@ -136,3 +136,25 @@ Mismatches found against the installed SDKs (pydantic-ai-slim 2.54, temporalio 1
 - `asyncio.wait` is restricted in the workflow sandbox; the turn uses `workflow.wait`.
 - The time-skipping test server can't be downloaded in this environment, so workflow tests
   run against the compose Temporal server with a unique task queue per test.
+
+### Step 6: Vercel AI SDK UI message stream at the SSE edge
+
+`toy/api/vercel_encoder.py` is the default encoder for `GET /agent/stream`: a stateful
+per-connection translator from `StreamEvent` to AI SDK UI message stream chunks (the chunk
+models come from `pydantic_ai.ui.vercel_ai.response_types`, so the wire format follows the SDK).
+Framing is `id: <redis stream id>\ndata: <json>\n\n`, the response carries
+`x-vercel-ai-ui-message-stream: v1`, and `data: [DONE]` follows every `turn.completed`.
+
+| Normalized event | Chunk(s) |
+| --- | --- |
+| `turn.started` | `start{messageId=turn id}`, `start-step` |
+| `text.*`, `reasoning.*` | `text-start/delta/end`, `reasoning-start/delta/end` (ids are `turn:attempt:part`) |
+| `tool.input_start/delta/available`, `tool.output` | `tool-input-start/delta/available`, `tool-output-available` or `tool-output-error` |
+| `status.changed` | `data-status`, `data-queue` |
+| `request.resolved` | `data-request-resolved` |
+| attempt bump (retried model activity) | closes open parts, `data-retry`, new part ids |
+| `turn.completed` | open parts closed, `error` (failed), `data-approval` (blocked), `finish-step`, `finish{finishReason}` then `[DONE]` |
+
+Finish reasons: completed→`stop`, stopped/blocked→`other`, failed→`error`.
+`?format=raw` keeps the JSON debug encoder. Tests: `tests/test_vercel_encoder.py` (synthetic
+fixtures plus `tests/fixtures/hitl_recorded.json`, recorded from the step 5 live run).
